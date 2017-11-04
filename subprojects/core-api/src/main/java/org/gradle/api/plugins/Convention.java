@@ -15,7 +15,10 @@
  */
 package org.gradle.api.plugins;
 
-import org.gradle.internal.metaobject.DynamicObject;
+import org.gradle.api.Action;
+import org.gradle.api.UnknownDomainObjectException;
+import org.gradle.api.reflect.TypeOf;
+import org.gradle.internal.HasInternalProtocol;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -25,7 +28,10 @@ import java.util.Map;
  * Convention}, and the properties and methods of the convention object become available as properties and methods of
  * the object which the convention is associated to. A convention object is simply a POJO or POGO. Usually, a {@code
  * Convention} is used by plugins to extend a {@link org.gradle.api.Project} or a {@link org.gradle.api.Task}.</p>
+ *
+ * This class extends {@link ExtensionContainer} for historical reasons, but should not be used as such.
  */
+@HasInternalProtocol
 public interface Convention extends ExtensionContainer {
 
     /**
@@ -40,8 +46,7 @@ public interface Convention extends ExtensionContainer {
      *
      * @param type The convention object type.
      * @return The object. Never returns null.
-     * @throws IllegalStateException When there is no such object contained in this convention, or when there are
-     * multiple such objects.
+     * @throws IllegalStateException When there is no such object contained in this convention, or when there are multiple such objects.
      */
     <T> T getPlugin(Class<T> type) throws IllegalStateException;
 
@@ -56,10 +61,141 @@ public interface Convention extends ExtensionContainer {
     <T> T findPlugin(Class<T> type) throws IllegalStateException;
 
     /**
-     * Returns a dynamic object which represents the properties and methods contributed by the extensions and convention objects contained in this
-     * convention.
+     * This method is only here for historical reasons.
      *
-     * @return The dynamic object
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
      */
-    DynamicObject getExtensionsAsDynamicObject();
+    @Deprecated
+    <T> void add(Class<T> publicType, String name, T extension);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> void add(TypeOf<T> publicType, String name, T extension);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    void add(String name, Object extension);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> T create(Class<T> publicType, String name, Class<? extends T> instanceType, Object... constructionArguments);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> T create(TypeOf<T> publicType, String name, Class<? extends T> instanceType, Object... constructionArguments);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> T create(String name, Class<T> type, Object... constructionArguments);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    Map<String, TypeOf<?>> getSchema();
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> T getByType(Class<T> type) throws UnknownDomainObjectException;
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> T getByType(TypeOf<T> type) throws UnknownDomainObjectException;
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    @Nullable
+    <T> T findByType(Class<T> type);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    @Nullable
+    <T> T findByType(TypeOf<T> type);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    Object getByName(String name) throws UnknownDomainObjectException;
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    @Nullable
+    Object findByName(String name);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> void configure(Class<T> type, Action<? super T> action);
+
+    /**
+     * v
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> void configure(TypeOf<T> type, Action<? super T> action);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    <T> void configure(String name, Action<? super T> action);
+
+    /**
+     * This method is only here for historical reasons.
+     *
+     * @deprecated use {@link ExtensionAware#getExtensions()} instead.
+     */
+    @Deprecated
+    ExtraPropertiesExtension getExtraProperties();
 }

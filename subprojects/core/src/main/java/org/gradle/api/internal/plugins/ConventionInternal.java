@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 the original author or authors.
+ * Copyright 2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,15 @@
 
 package org.gradle.api.internal.plugins;
 
-import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.plugins.Convention;
 import org.gradle.internal.metaobject.DynamicObject;
 
-import java.util.Map;
-
-public interface ExtensionContainerInternal extends ExtensionContainer {
+public interface ConventionInternal extends Convention, ExtensionContainerInternal {
     /**
-     * Provides access to all known extensions.
-     * @return A map of extensions, keyed by name.
+     * Returns a dynamic object which represents the properties and methods contributed by the extensions and convention objects contained in this
+     * convention.
+     *
+     * @return The dynamic object
      */
-    Map<String, Object> getAsMap();
-
-    DynamicObject getExtensionsAsDynamicObject();
+    DynamicObject getConventionsAsDynamicObject();
 }

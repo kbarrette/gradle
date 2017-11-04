@@ -28,6 +28,7 @@ import org.gradle.api.Transformer;
 import org.gradle.api.internal.provider.PropertyInternal;
 import org.gradle.api.plugins.Convention;
 import org.gradle.api.plugins.ExtensionAware;
+import org.gradle.api.plugins.ExtensionContainer;
 import org.gradle.internal.UncheckedException;
 import org.gradle.internal.metaobject.AbstractDynamicObject;
 import org.gradle.internal.metaobject.BeanDynamicObject;
@@ -87,6 +88,7 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
         private final static Type CONVENTION_MAPPING_TYPE = Type.getType(ConventionMapping.class);
         private final static Type GROOVY_OBJECT_TYPE = Type.getType(GroovyObject.class);
         private final static Type CONVENTION_TYPE = Type.getType(Convention.class);
+        private final static Type EXTENSION_CONTAINER_TYPE = Type.getType(ExtensionContainer.class);
         private final static Type ABSTRACT_DYNAMIC_OBJECT_TYPE = Type.getType(AbstractDynamicObject.class);
         private final static Type EXTENSIBLE_DYNAMIC_OBJECT_HELPER_TYPE = Type.getType(MixInExtensibleDynamicObject.class);
         private final static Type NON_EXTENSIBLE_DYNAMIC_OBJECT_HELPER_TYPE = Type.getType(BeanDynamicObject.class);
@@ -114,6 +116,7 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
         private static final String RETURN_CLASS = Type.getMethodDescriptor(CLASS_TYPE);
         private static final String RETURN_VOID_FROM_CONVENTION_AWARE_CONVENTION = Type.getMethodDescriptor(Type.VOID_TYPE, CONVENTION_AWARE_TYPE, CONVENTION_TYPE);
         private static final String RETURN_CONVENTION = Type.getMethodDescriptor(CONVENTION_TYPE);
+        private static final String RETURN_EXTENSIONS= Type.getMethodDescriptor(EXTENSION_CONTAINER_TYPE);
         private static final String RETURN_DYNAMIC_OBJECT = Type.getMethodDescriptor(DYNAMIC_OBJECT_TYPE);
         private static final String RETURN_META_CLASS_FROM_CLASS = Type.getMethodDescriptor(Type.getType(MetaClass.class), CLASS_TYPE);
         private static final String RETURN_BOOLEAN_FROM_STRING = Type.getMethodDescriptor(BOOLEAN_TYPE, STRING_TYPE);
@@ -233,15 +236,17 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
 
                 // END
 
-                // GENERATE public ExtensionContainer getExtensions() { return getConvention(); }
+                // GENERATE public ExtensionContainer getExtensions() { return getAsDynamicObject().getExtensions(); }
 
                 addGetter(ExtensionAware.class.getDeclaredMethod("getExtensions"), new MethodCodeBody() {
                     public void add(MethodVisitor visitor) throws Exception {
 
-                        // GENERATE getConvention()
+                        // GENERATE ((MixInExtensibleDynamicObject)getAsDynamicObject()).getExtension()
 
                         visitor.visitVarInsn(Opcodes.ALOAD, 0);
-                        visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, generatedType.getInternalName(), "getConvention", RETURN_CONVENTION, false);
+                        visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, generatedType.getInternalName(), "getAsDynamicObject", Type.getMethodDescriptor(getAsDynamicObject), false);
+                        visitor.visitTypeInsn(Opcodes.CHECKCAST, EXTENSIBLE_DYNAMIC_OBJECT_HELPER_TYPE.getInternalName());
+                        visitor.visitMethodInsn(Opcodes.INVOKEVIRTUAL, EXTENSIBLE_DYNAMIC_OBJECT_HELPER_TYPE.getInternalName(), "getExtensions", RETURN_EXTENSIONS, false);
                     }
                 });
             }

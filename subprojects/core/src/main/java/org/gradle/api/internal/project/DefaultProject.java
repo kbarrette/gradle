@@ -1289,7 +1289,7 @@ public class DefaultProject extends AbstractPluginAware implements ProjectIntern
 
     @Override
     public ExtensionContainerInternal getExtensions() {
-        return (ExtensionContainerInternal) getConvention();
+        return (ExtensionContainerInternal) extensibleDynamicObject.getExtensions();
     }
 
     // Not part of the public API

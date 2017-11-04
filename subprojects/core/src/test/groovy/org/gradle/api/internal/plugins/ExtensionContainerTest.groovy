@@ -21,24 +21,21 @@ import org.gradle.api.UnknownDomainObjectException
 import org.gradle.api.internal.ThreadGlobalInstantiator
 import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.plugins.ExtraPropertiesExtension
+import org.gradle.api.reflect.HasPublicType
 import org.gradle.api.reflect.TypeOf
+import org.gradle.internal.reflect.Instantiator
+import org.junit.Test
 import spock.lang.Specification
 
 import static org.gradle.api.reflect.TypeOf.typeOf
+import static org.junit.Assert.assertEquals
+import static org.junit.Assert.assertTrue
 
 class ExtensionContainerTest extends Specification {
 
-    def container = new DefaultConvention(ThreadGlobalInstantiator.getOrCreate())
+    def container = new DefaultConvention(new DefaultExtensionContainer(ThreadGlobalInstantiator.getOrCreate()))
     def extension = new FooExtension()
     def barExtension = new BarExtension()
-
-    class FooExtension {
-        String message = "smile"
-    }
-
-    class BarExtension {}
-
-    class SomeExtension {}
 
     def "has dynamic extension"() {
         expect:
@@ -152,7 +149,7 @@ class ExtensionContainerTest extends Specification {
 
         then:
         def ex = thrown(UnknownDomainObjectException)
-        ex.message == "Extension of type 'ExtensionContainerTest.SomeExtension' does not exist. Currently registered extension types: [${ExtraPropertiesExtension.simpleName}, ExtensionContainerTest.FooExtension]"
+        ex.message == "Extension of type 'SomeExtension' does not exist. Currently registered extension types: [${ExtraPropertiesExtension.simpleName}, FooExtension]"
     }
 
     def "types can be retrieved by interface and super types"() {
@@ -262,6 +259,65 @@ class ExtensionContainerTest extends Specification {
 
         then:
         extension.message == "bar"
+    }
+
+
+    @Test void addsPropertyAndConfigureMethodForEachExtension() {
+        //when
+        def ext = new FooExtension()
+        container.add("foo", ext)
+
+        //then
+        assertTrue(container.extensionsAsDynamicObject.hasProperty("foo"))
+        assertTrue(container.extensionsAsDynamicObject.hasMethod("foo", {}))
+        assertEquals(container.extensionsAsDynamicObject.properties.get("foo"), ext);
+    }
+
+    @Test void canCreateExtensions() {
+        FooExtension extension = container.create("foo", FooExtension)
+        assert extension.is(container.getByName("foo"))
+    }
+
+    @Test void honoursHasPublicTypeForAddedExtension() {
+        container.add("pet", new ExtensionWithPublicType())
+        assert container.schema["pet"] == typeOf(PublicExtensionType)
+    }
+
+    @Test void honoursHasPublicTypeForCreatedExtension() {
+        container.create("pet", ExtensionWithPublicType)
+        assert container.schema["pet"] == typeOf(PublicExtensionType)
+    }
+
+    @Test void createWillExposeGivenTypeAsTheSchemaTypeEvenWhenInstantiatorReturnsDecoratedType() {
+        def container = new DefaultExtensionContainer(new Instantiator() {
+            @Override
+            <T> T newInstance(Class<? extends T> type, Object... parameters) {
+                (T) new DecoratedFooExtension()
+            }
+        })
+        assert container.create("foo", FooExtension) instanceof DecoratedFooExtension
+        assert container.schema["foo"] == typeOf(FooExtension)
+    }
+}
+
+class FooExtension {
+    String message = "smile"
+}
+
+class BarExtension {}
+
+class SomeExtension {}
+
+class DecoratedFooExtension extends FooExtension {
+}
+
+interface PublicExtensionType {
+}
+
+class ExtensionWithPublicType implements HasPublicType {
+    @Override
+    TypeOf<?> getPublicType() {
+        typeOf(PublicExtensionType)
     }
 }
 

@@ -17,40 +17,30 @@
 package org.gradle.api.internal.plugins;
 
 import com.google.common.collect.Maps;
-import groovy.lang.Closure;
 import org.gradle.api.Action;
-import org.gradle.api.GradleException;
-import org.gradle.api.plugins.Convention;
+import org.gradle.api.UnknownDomainObjectException;
 import org.gradle.api.plugins.ExtraPropertiesExtension;
-import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf;
 import org.gradle.internal.metaobject.AbstractDynamicObject;
 import org.gradle.internal.metaobject.BeanDynamicObject;
 import org.gradle.internal.metaobject.DynamicInvokeResult;
 import org.gradle.internal.metaobject.DynamicObject;
-import org.gradle.internal.reflect.Instantiator;
-import org.gradle.util.ConfigureUtil;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
-import static org.gradle.api.reflect.TypeOf.typeOf;
-import static org.gradle.internal.Cast.uncheckedCast;
 
-public class DefaultConvention implements Convention, ExtensionContainerInternal {
+public class DefaultConvention implements ConventionInternal {
 
-    private final Map<String, Object> plugins = new LinkedHashMap<String, Object>();
-    private final DefaultConvention.ExtensionsDynamicObject extensionsDynamicObject = new ExtensionsDynamicObject();
-    private final ExtensionsStorage extensionsStorage = new ExtensionsStorage();
-    private final ExtraPropertiesExtension extraProperties = new DefaultExtraPropertiesExtension();
-    private final Instantiator instantiator;
-
+    private final Map<String, Object> plugins = Maps.newLinkedHashMap();
+    private final ConventionsDynamicObject conventionsDynamicObject = new ConventionsDynamicObject();
     private Map<Object, BeanDynamicObject> dynamicObjects;
+    private DefaultExtensionContainer extensions;
 
     /**
      * This method should not be used in runtime code proper as means that the convention cannot create
@@ -58,15 +48,14 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
      *
      * It's here for backwards compatibility with our tests and for convenience.
      *
-     * @see #DefaultConvention(org.gradle.internal.reflect.Instantiator)
+     * @see #DefaultConvention(DefaultExtensionContainer)
      */
     public DefaultConvention() {
         this(null);
     }
 
-    public DefaultConvention(Instantiator instantiator) {
-        this.instantiator = instantiator;
-        add(ExtraPropertiesExtension.class, ExtraPropertiesExtension.EXTENSION_NAME, extraProperties);
+    public DefaultConvention(DefaultExtensionContainer extensions) {
+        this.extensions = extensions;
     }
 
     @Override
@@ -75,15 +64,17 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
     }
 
     @Override
-    public DynamicObject getExtensionsAsDynamicObject() {
-        return extensionsDynamicObject;
+    public DynamicObject getConventionsAsDynamicObject() {
+        return conventionsDynamicObject;
     }
 
-    private Instantiator getInstantiator() {
-        if (instantiator == null) {
-            throw new GradleException("request for DefaultConvention.instantiator when the object was constructed without a convention");
-        }
-        return instantiator;
+
+    public Object propertyMissing(String name) {
+        return extensions.propertyMissing(name);
+    }
+
+    public void propertyMissing(String name, Object value) {
+        extensions.propertyMissing(name, value);
     }
 
     @Override
@@ -99,7 +90,7 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
     @Override
     public <T> T findPlugin(Class<T> type) throws IllegalStateException {
         List<T> values = new ArrayList<T>();
-        for (Object object : plugins.values()) {
+        for (Object object : getPlugins().values()) {
             if (type.isInstance(object)) {
                 values.add(type.cast(object));
             }
@@ -115,139 +106,112 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
     }
 
     @Override
-    public void add(String name, Object extension) {
-        if (extension instanceof Class) {
-            create(name, (Class<?>) extension);
-        } else {
-            addWithDefaultPublicType(extension.getClass(), name, extension);
-        }
-    }
-
-    @Override
     public <T> void add(Class<T> publicType, String name, T extension) {
-        add(typeOf(publicType), name, extension);
+        extensions.add(publicType, name, extension);
     }
 
     @Override
     public <T> void add(TypeOf<T> publicType, String name, T extension) {
-        extensionsStorage.add(publicType, name, extension);
+        extensions.add(publicType, name, extension);
     }
 
     @Override
-    public <T> T create(String name, Class<T> instanceType, Object... constructionArguments) {
-        T instance = instantiate(instanceType, constructionArguments);
-        addWithDefaultPublicType(instanceType, name, instance);
-        return instance;
+    public void add(String name, Object extension) {
+        extensions.add(name, extension);
     }
 
     @Override
     public <T> T create(Class<T> publicType, String name, Class<? extends T> instanceType, Object... constructionArguments) {
-        return create(typeOf(publicType), name, instanceType, constructionArguments);
+        return extensions.create(publicType, name, instanceType, constructionArguments);
     }
 
     @Override
     public <T> T create(TypeOf<T> publicType, String name, Class<? extends T> instanceType, Object... constructionArguments) {
-        T instance = instantiate(instanceType, constructionArguments);
-        add(publicType, name, instance);
-        return instance;
+        return extensions.create(publicType, name, instanceType, constructionArguments);
     }
 
     @Override
-    public ExtraPropertiesExtension getExtraProperties() {
-        return extraProperties;
+    public <T> T create(String name, Class<T> type, Object... constructionArguments) {
+        return extensions.create(name, type, constructionArguments);
     }
 
     @Override
     public Map<String, TypeOf<?>> getSchema() {
-        return extensionsStorage.getSchema();
+        return extensions.getSchema();
     }
 
     @Override
-    public <T> T getByType(Class<T> type) {
-        return getByType(typeOf(type));
+    public <T> T getByType(Class<T> type) throws UnknownDomainObjectException {
+        return extensions.getByType(type);
     }
 
     @Override
-    public <T> T getByType(TypeOf<T> type) {
-        return extensionsStorage.getByType(type);
+    public <T> T getByType(TypeOf<T> type) throws UnknownDomainObjectException {
+        return extensions.getByType(type);
     }
 
+    @Nullable
     @Override
     public <T> T findByType(Class<T> type) {
-        return findByType(typeOf(type));
+        return extensions.findByType(type);
     }
 
+    @Nullable
     @Override
     public <T> T findByType(TypeOf<T> type) {
-        return extensionsStorage.findByType(type);
+        return extensions.findByType(type);
     }
 
     @Override
-    public Object getByName(String name) {
-        return extensionsStorage.getByName(name);
+    public Object getByName(String name) throws UnknownDomainObjectException {
+        return extensions.getByName(name);
     }
 
+    @Nullable
     @Override
     public Object findByName(String name) {
-        return extensionsStorage.findByName(name);
+        return extensions.findByName(name);
     }
 
     @Override
     public <T> void configure(Class<T> type, Action<? super T> action) {
-        configure(typeOf(type), action);
+        extensions.configure(type, action);
     }
 
     @Override
     public <T> void configure(TypeOf<T> type, Action<? super T> action) {
-        extensionsStorage.configureExtension(type, action);
+        extensions.configure(type, action);
     }
 
     @Override
     public <T> void configure(String name, Action<? super T> action) {
-        extensionsStorage.configureExtension(name, action);
+        extensions.configure(name, action);
+    }
+
+    @Override
+    public ExtraPropertiesExtension getExtraProperties() {
+        return extensions.getExtraProperties();
     }
 
     @Override
     public Map<String, Object> getAsMap() {
-        return extensionsStorage.getAsMap();
+        return extensions.getAsMap();
     }
 
-    public Object propertyMissing(String name) {
-        return getByName(name);
+    @Override
+    public DynamicObject getExtensionsAsDynamicObject() {
+        return extensions.getExtensionsAsDynamicObject();
     }
 
-    public void propertyMissing(String name, Object value) {
-        checkExtensionIsNotReassigned(name);
-        add(name, value);
-    }
-
-    private void addWithDefaultPublicType(Class<?> defaultType, String name, Object extension) {
-        add(preferredPublicTypeOf(extension, defaultType), name, extension);
-    }
-
-    private TypeOf<Object> preferredPublicTypeOf(Object extension, Class<?> defaultType) {
-        if (extension instanceof HasPublicType) {
-            return uncheckedCast(((HasPublicType) extension).getPublicType());
-        }
-        return TypeOf.<Object>typeOf(defaultType);
-    }
-
-    private <T> T instantiate(Class<? extends T> instanceType, Object[] constructionArguments) {
-        return getInstantiator().newInstance(instanceType, constructionArguments);
-    }
-
-    private class ExtensionsDynamicObject extends AbstractDynamicObject {
+    private class ConventionsDynamicObject extends AbstractDynamicObject {
         @Override
         public String getDisplayName() {
-            return "extensions";
+            return "conventions";
         }
 
         @Override
         public boolean hasProperty(String name) {
-            if (extensionsStorage.hasExtension(name)) {
-                return true;
-            }
-            for (Object object : plugins.values()) {
+            for (Object object : getPlugins().values()) {
                 if (asDynamicObject(object).hasProperty(name)) {
                     return true;
                 }
@@ -258,22 +222,17 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
         @Override
         public Map<String, Object> getProperties() {
             Map<String, Object> properties = new HashMap<String, Object>();
-            List<Object> reverseOrder = new ArrayList<Object>(plugins.values());
+            List<Object> reverseOrder = new ArrayList<Object>(getPlugins().values());
             Collections.reverse(reverseOrder);
             for (Object object : reverseOrder) {
                 properties.putAll(asDynamicObject(object).getProperties());
             }
-            properties.putAll(extensionsStorage.getAsMap());
             return properties;
         }
 
         @Override
         public DynamicInvokeResult tryGetProperty(String name) {
-            Object extension = extensionsStorage.findByName(name);
-            if (extension != null) {
-                return DynamicInvokeResult.found(extension);
-            }
-            for (Object object : plugins.values()) {
+            for (Object object : getPlugins().values()) {
                 DynamicObject dynamicObject = asDynamicObject(object).withNotImplementsMissing();
                 DynamicInvokeResult result = dynamicObject.tryGetProperty(name);
                 if (result.isFound()) {
@@ -289,8 +248,7 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
 
         @Override
         public DynamicInvokeResult trySetProperty(String name, Object value) {
-            checkExtensionIsNotReassigned(name);
-            for (Object object : plugins.values()) {
+            for (Object object : getPlugins().values()) {
                 BeanDynamicObject dynamicObject = asDynamicObject(object).withNotImplementsMissing();
                 DynamicInvokeResult result = dynamicObject.trySetProperty(name, value);
                 if (result.isFound()) {
@@ -306,10 +264,7 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
 
         @Override
         public DynamicInvokeResult tryInvokeMethod(String name, Object... args) {
-            if (isConfigureExtensionMethod(name, args)) {
-                return DynamicInvokeResult.found(configureExtension(name, args));
-            }
-            for (Object object : plugins.values()) {
+            for (Object object : getPlugins().values()) {
                 BeanDynamicObject dynamicObject = asDynamicObject(object).withNotImplementsMissing();
                 DynamicInvokeResult result = dynamicObject.tryInvokeMethod(name, args);
                 if (result.isFound()) {
@@ -325,10 +280,7 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
 
         @Override
         public boolean hasMethod(String name, Object... args) {
-            if (isConfigureExtensionMethod(name, args)) {
-                return true;
-            }
-            for (Object object : plugins.values()) {
+            for (Object object : getPlugins().values()) {
                 BeanDynamicObject dynamicObject = asDynamicObject(object);
                 if (dynamicObject.hasMethod(name, args)) {
                     return true;
@@ -348,22 +300,5 @@ public class DefaultConvention implements Convention, ExtensionContainerInternal
             }
             return dynamicObject;
         }
-    }
-
-    private void checkExtensionIsNotReassigned(String name) {
-        if (extensionsStorage.hasExtension(name)) {
-            throw new IllegalArgumentException(
-                format("There's an extension registered with name '%s'. You should not reassign it via a property setter.", name));
-        }
-    }
-
-    private boolean isConfigureExtensionMethod(String name, Object[] args) {
-        return args.length == 1 && args[0] instanceof Closure && extensionsStorage.hasExtension(name);
-    }
-
-    private Object configureExtension(String name, Object[] args) {
-        Closure closure = (Closure) args[0];
-        Action<Object> action = ConfigureUtil.configureUsing(closure);
-        return extensionsStorage.configureExtension(name, action);
     }
 }

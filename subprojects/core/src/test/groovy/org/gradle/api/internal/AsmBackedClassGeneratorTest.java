@@ -101,7 +101,7 @@ public class AsmBackedClassGeneratorTest {
         Bean bean = generatedClass.newInstance();
         ExtensionAware dynamicBean = (ExtensionAware) bean;
 
-        assertThat(dynamicBean.getExtensions(), notNullValue());
+        assertThat(dynamicBean.getExtensions(), isA(ExtensionContainer.class));
     }
 
     @Test
@@ -580,8 +580,8 @@ public class AsmBackedClassGeneratorTest {
     @Test
     public void doesNotOverrideMethodsFromDynamicObjectAwareInterface() throws Exception {
         DynamicObjectAwareBean bean = generator.generate(DynamicObjectAwareBean.class).newInstance();
-        assertThat(bean.getConvention(), sameInstance(bean.conv));
-        assertThat(bean.getAsDynamicObject(), sameInstance(bean.conv.getExtensionsAsDynamicObject()));
+        assertThat(bean.getConvention(), sameInstance(bean.dynamicObject.getConvention()));
+        assertThat(bean.getAsDynamicObject(), sameInstance((DynamicObject) bean.dynamicObject));
     }
 
     @Test
@@ -798,8 +798,8 @@ public class AsmBackedClassGeneratorTest {
         DslObject dslObject = new DslObject(generator.generate(Bean.class).newInstance());
         assertEquals(Bean.class, dslObject.getDeclaredType());
         assertNotNull(dslObject.getConventionMapping());
-        assertNotNull(dslObject.getConvention());
-        assertNotNull(dslObject.getExtensions());
+        assertThat(dslObject.getConvention(), isA(Convention.class));
+        assertThat(dslObject.getExtensions(), isA(ExtensionContainer.class));
         assertNotNull(dslObject.getAsDynamicObject());
     }
 
@@ -1136,18 +1136,18 @@ public class AsmBackedClassGeneratorTest {
     }
 
     public static class DynamicObjectAwareBean extends Bean implements DynamicObjectAware {
-        Convention conv = new ExtensibleDynamicObject(this, DynamicObjectAwareBean.class, ThreadGlobalInstantiator.getOrCreate()).getConvention();
+        ExtensibleDynamicObject dynamicObject = new ExtensibleDynamicObject(this, DynamicObjectAwareBean.class, ThreadGlobalInstantiator.getOrCreate());
 
         public Convention getConvention() {
-            return conv;
+            return dynamicObject.getConvention();
         }
 
         public ExtensionContainer getExtensions() {
-            return conv;
+            return dynamicObject.getExtensions();
         }
 
         public DynamicObject getAsDynamicObject() {
-            return conv.getExtensionsAsDynamicObject();
+            return dynamicObject;
         }
     }
 

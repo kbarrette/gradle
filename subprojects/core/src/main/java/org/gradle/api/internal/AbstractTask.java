@@ -522,7 +522,8 @@ public abstract class AbstractTask implements TaskInternal, DynamicObjectAware {
     @Internal
     @Override
     public ExtensionContainer getExtensions() {
-        return getConvention();
+        assertDynamicObject();
+        return extensibleDynamicObject.getExtensions();
     }
 
     @Internal
