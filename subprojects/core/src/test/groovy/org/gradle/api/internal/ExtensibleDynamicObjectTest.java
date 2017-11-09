@@ -222,6 +222,16 @@ public class ExtensibleDynamicObjectTest {
         assertThat(bean.getProperty("parentProperty"), equalTo((Object) "value"));
     }
 
+    @Test(expected = MissingPropertyException.class)
+    public void canNotSetPropertyDefinedByParent() {
+        Bean parent = new Bean();
+        parent.defineProperty("parentProperty", "value");
+
+        Bean bean = new Bean();
+        bean.setParent(parent.getAsDynamicObject());
+        bean.setProperty("parentProperty", "newValue");
+    }
+
     @Test
     public void extraPropertyIsNotVisibleToParent() {
         Bean parent = new Bean();

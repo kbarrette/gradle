@@ -19,12 +19,18 @@ package org.gradle.internal.metaobject
 import spock.lang.Specification
 
 class CompositeDynamicObjectTest extends Specification {
-    def obj = new CompositeDynamicObject() {
+
+    private class TestComposite extends CompositeDynamicObject {
+        DynamicObject[] objects
+
         @Override
         String getDisplayName() {
             return "<obj>"
         }
+
     }
+    
+    def obj = new TestComposite()
 
     def "get property returns result from first delegate that has the property"() {
         def obj1 = Mock(DynamicObject)

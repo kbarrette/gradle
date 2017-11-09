@@ -33,8 +33,6 @@ import org.gradle.internal.metaobject.MixInClosurePropertiesAsMethodsDynamicObje
 import org.gradle.internal.reflect.Instantiator;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,6 +43,7 @@ import java.util.Map;
  * @see org.gradle.api.internal.AsmBackedClassGenerator.MixInExtensibleDynamicObject
  */
 public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDynamicObject implements HasConvention {
+
 
     public enum Location {
         BeforeConvention, AfterConvention
@@ -59,6 +58,10 @@ public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDyna
     private ConventionInternal convention;
     private DynamicObject afterConvention;
 
+    private DynamicObject[] objects;
+    private DynamicObject[] objectsForUpdate;
+    private DynamicObject[] inheritableObjects;
+
     public ExtensibleDynamicObject(Object delegate, Class<?> publicType, Instantiator instantiator) {
         this(delegate, createDynamicObject(delegate, publicType), instantiator);
     }
@@ -67,7 +70,6 @@ public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDyna
         this.dynamicDelegate = dynamicDelegate;
         extensions = new DefaultExtensionContainer(instantiator);
         extraPropertiesDynamicObject = new ExtraPropertiesDynamicObjectAdapter(delegate.getClass(), extensions.getExtraProperties());
-        updateDelegates();
     }
 
     private static BeanDynamicObject createDynamicObject(Object delegate, Class<?> publicType) {
@@ -75,35 +77,52 @@ public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDyna
     }
 
     private void updateDelegates() {
-        int idx = 0;
-        DynamicObject[] delegates = new DynamicObject[7];
-        delegates[idx++] = dynamicDelegate;
-        delegates[idx++] = extraPropertiesDynamicObject;
-        if (beforeConvention != null) {
-            delegates[idx++] = beforeConvention;
-        }
-        delegates[idx++] = extensions.getExtensionsAsDynamicObject();
-        if (convention != null) {
-            delegates[idx++] = convention.getConventionsAsDynamicObject();
-        }
-        if (afterConvention != null) {
-            delegates[idx++] = afterConvention;
-        }
-        boolean addedParent = false;
-        if (parent != null) {
-            addedParent = true;
-            delegates[idx++] = parent;
-        }
-        DynamicObject[] objects = new DynamicObject[idx];
-        System.arraycopy(delegates, 0, objects, 0, idx);
-        setObjects(objects);
+        DynamicObject extensionsAsDynamicObject = extensions.getExtensionsAsDynamicObject();
+        DynamicObject conventionsAsDynamicObject = convention == null ? null : convention.getConventionsAsDynamicObject();
 
-        if (addedParent) {
-            idx--;
+        if (objects != null) {
+            objects[0] = dynamicDelegate;
+            objects[1] = extraPropertiesDynamicObject;
+            objects[2] = beforeConvention;
+            objects[3] = extensionsAsDynamicObject;
+            objects[4] = conventionsAsDynamicObject;
+            objects[5] = afterConvention;
+            objects[6] = parent;
         }
-        objects = new DynamicObject[idx];
-        System.arraycopy(delegates, 0, objects, 0, idx);
-        setObjectsForUpdate(objects);
+
+        if (objectsForUpdate != null) {
+            objectsForUpdate[0] = dynamicDelegate;
+            objectsForUpdate[1] = extraPropertiesDynamicObject;
+            objectsForUpdate[2] = beforeConvention;
+            objectsForUpdate[3] = extensionsAsDynamicObject;
+            objectsForUpdate[4] = conventionsAsDynamicObject;
+            objectsForUpdate[5] = afterConvention;
+        }
+
+        if (inheritableObjects != null) {
+            inheritableObjects[0] = extraPropertiesDynamicObject;
+            inheritableObjects[1] = beforeConvention;
+            inheritableObjects[2] = extensionsAsDynamicObject;
+            inheritableObjects[3] = conventionsAsDynamicObject;
+            inheritableObjects[4] = parent;
+        }
+    }
+
+    @Override
+    public DynamicObject[] getObjects() {
+        if (objects == null) {
+            objects = new DynamicObject[7];
+            updateDelegates();
+        }
+        return objects;
+    }
+
+    public DynamicObject[] getUpdateObjects() {
+        if (objectsForUpdate == null) {
+            objectsForUpdate = new DynamicObject[7];
+            updateDelegates();
+        }
+        return objectsForUpdate;
     }
 
     @Override
@@ -170,41 +189,36 @@ public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDyna
      * @return an object containing the inheritable properties and methods of this object.
      */
     public DynamicObject getInheritable() {
-        return new InheritedDynamicObject();
+        if (inheritableObjects == null) {
+            inheritableObjects = new DynamicObject[5];
+            updateDelegates();
+        }
+        return new InheritedDynamicObject(dynamicDelegate, inheritableObjects);
     }
 
-    private DynamicObject snapshotInheritable() {
-        final List<DynamicObject> delegates = new ArrayList<DynamicObject>(5);
-        if (extraPropertiesDynamicObject != null) {
-            delegates.add(extraPropertiesDynamicObject);
-        }
-        if (beforeConvention != null) {
-            delegates.add(beforeConvention);
-        }
-        delegates.add(extensions.getExtensionsAsDynamicObject());
-        if (convention != null) {
-            delegates.add(convention.getConventionsAsDynamicObject());
-        }
-        if (parent != null) {
-            delegates.add(parent);
-        }
-        return new CompositeDynamicObject() {
-            {
-                setObjects(delegates.toArray(new DynamicObject[0]));
-            }
+    private static class InheritedDynamicObject implements DynamicObject {
+        private final AbstractDynamicObject dynamicDelegate;
+        private DynamicObject inheritableDelegate;
 
-            @Override
-            public String getDisplayName() {
-                return dynamicDelegate.getDisplayName();
-            }
-        };
-    }
+        private InheritedDynamicObject(final AbstractDynamicObject dynamicDelegate, final DynamicObject[] inheritableObjects) {
+            this.dynamicDelegate = dynamicDelegate;
+            inheritableDelegate = new CompositeDynamicObject() {
+                @Override
+                protected DynamicObject[] getObjects() {
+                    return inheritableObjects;
+                }
 
-    private class InheritedDynamicObject implements DynamicObject {
+                @Override
+                public String getDisplayName() {
+                    return dynamicDelegate.getDisplayName();
+                }
+            };
+        }
+
         @Override
         public void setProperty(String name, Object value) {
             throw new MissingPropertyException(String.format("Could not find property '%s' inherited from %s.", name,
-                    dynamicDelegate.getDisplayName()));
+                dynamicDelegate.getDisplayName()));
         }
 
         @Override
@@ -230,37 +244,37 @@ public class ExtensibleDynamicObject extends MixInClosurePropertiesAsMethodsDyna
 
         @Override
         public boolean hasProperty(String name) {
-            return snapshotInheritable().hasProperty(name);
+            return inheritableDelegate.hasProperty(name);
         }
 
         @Override
         public Object getProperty(String name) {
-            return snapshotInheritable().getProperty(name);
+            return inheritableDelegate.getProperty(name);
         }
 
         @Override
         public DynamicInvokeResult tryGetProperty(String name) {
-            return snapshotInheritable().tryGetProperty(name);
+            return inheritableDelegate.tryGetProperty(name);
         }
 
         @Override
         public Map<String, ?> getProperties() {
-            return snapshotInheritable().getProperties();
+            return inheritableDelegate.getProperties();
         }
 
         @Override
         public boolean hasMethod(String name, Object... arguments) {
-            return snapshotInheritable().hasMethod(name, arguments);
+            return inheritableDelegate.hasMethod(name, arguments);
         }
 
         @Override
         public DynamicInvokeResult tryInvokeMethod(String name, Object... arguments) {
-            return snapshotInheritable().tryInvokeMethod(name, arguments);
+            return inheritableDelegate.tryInvokeMethod(name, arguments);
         }
 
         @Override
         public Object invokeMethod(String name, Object... arguments) {
-            return snapshotInheritable().invokeMethod(name, arguments);
+            return inheritableDelegate.invokeMethod(name, arguments);
         }
 
     }

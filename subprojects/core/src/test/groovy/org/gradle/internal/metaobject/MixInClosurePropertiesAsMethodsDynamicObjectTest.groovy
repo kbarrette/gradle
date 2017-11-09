@@ -19,12 +19,17 @@ package org.gradle.internal.metaobject
 import spock.lang.Specification
 
 class MixInClosurePropertiesAsMethodsDynamicObjectTest extends Specification {
-    def obj = new MixInClosurePropertiesAsMethodsDynamicObject() {
+    private class TestComposite extends MixInClosurePropertiesAsMethodsDynamicObject {
+        DynamicObject[] objects
+
         @Override
         String getDisplayName() {
             return "<obj>"
         }
+
     }
+
+    def obj = new TestComposite()
 
     def "invokes method on first delegate that has a property with closure value"() {
         def obj1 = Mock(DynamicObject)

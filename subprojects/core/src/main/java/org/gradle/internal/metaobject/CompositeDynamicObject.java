@@ -27,21 +27,20 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
 
     private static final DynamicObject[] NONE = new DynamicObject[0];
 
-    private DynamicObject[] objects = NONE;
-    private DynamicObject[] updateObjects = NONE;
-
-    protected void setObjects(DynamicObject... objects) {
-        this.objects = objects;
-        updateObjects = objects;
+    protected DynamicObject[] getObjects() {
+        return NONE;
     }
 
-    protected void setObjectsForUpdate(DynamicObject... objects) {
-        this.updateObjects = objects;
-    }
+    protected DynamicObject[] getUpdateObjects() {
+        return getObjects();
+    };
 
     @Override
     public boolean hasProperty(String name) {
-        for (DynamicObject object : objects) {
+        for (DynamicObject object : getObjects()) {
+            if (object == null) {
+                continue;
+            }
             if (object.hasProperty(name)) {
                 return true;
             }
@@ -51,7 +50,10 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
 
     @Override
     public DynamicInvokeResult tryGetProperty(String name) {
-        for (DynamicObject object : objects) {
+        for (DynamicObject object : getObjects()) {
+            if (object == null) {
+                continue;
+            }
             DynamicInvokeResult result = object.tryGetProperty(name);
             if (result.isFound()) {
                 return result;
@@ -62,7 +64,10 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
 
     @Override
     public DynamicInvokeResult trySetProperty(String name, Object value) {
-        for (DynamicObject object : updateObjects) {
+        for (DynamicObject object : getUpdateObjects()) {
+            if (object == null) {
+                continue;
+            }
             DynamicInvokeResult result = object.trySetProperty(name, value);
             if (result.isFound()) {
                 return result;
@@ -74,8 +79,12 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
     @Override
     public Map<String, Object> getProperties() {
         Map<String, Object> properties = new HashMap<String, Object>();
+        DynamicObject[] objects = getObjects();
         for (int i = objects.length - 1; i >= 0; i--) {
             DynamicObject object = objects[i];
+            if (object == null) {
+                continue;
+            }
             properties.putAll(object.getProperties());
         }
         properties.put("properties", properties);
@@ -84,7 +93,10 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
 
     @Override
     public boolean hasMethod(String name, Object... arguments) {
-        for (DynamicObject object : objects) {
+        for (DynamicObject object : getObjects()) {
+            if (object == null) {
+                continue;
+            }
             if (object.hasMethod(name, arguments)) {
                 return true;
             }
@@ -94,7 +106,10 @@ public abstract class CompositeDynamicObject extends AbstractDynamicObject {
 
     @Override
     public DynamicInvokeResult tryInvokeMethod(String name, Object... arguments) {
-        for (DynamicObject object : objects) {
+        for (DynamicObject object : getObjects()) {
+            if (object == null) {
+                continue;
+            }
             DynamicInvokeResult result = object.tryInvokeMethod(name, arguments);
             if (result.isFound()) {
                 return result;
