@@ -125,6 +125,7 @@ class ResolveIvyFactoryTest extends Specification {
             constructorArgs: [
                 "Spy Resolver",
                 false,
+                false,
                 externalResourceRepository,
                 cacheAwareExternalResourceAccessor,
                 versionLister,

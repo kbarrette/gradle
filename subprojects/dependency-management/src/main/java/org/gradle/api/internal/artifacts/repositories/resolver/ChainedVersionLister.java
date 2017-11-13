@@ -29,8 +29,14 @@ import java.util.List;
 
 public class ChainedVersionLister implements VersionLister {
     private final List<VersionLister> versionListers;
+    private final boolean allowEmptyGroup;
 
     public ChainedVersionLister(VersionLister... delegates) {
+        this(false, delegates);
+    }
+
+    public ChainedVersionLister(boolean allowEmptyGroup, VersionLister... delegates) {
+        this.allowEmptyGroup = allowEmptyGroup;
         this.versionListers = Arrays.asList(delegates);
     }
 
@@ -41,6 +47,9 @@ public class ChainedVersionLister implements VersionLister {
         }
         return new VersionPatternVisitor() {
             public void visit(ResourcePattern pattern, IvyArtifactName artifact) throws ResourceException {
+                if (isIncomplete(module)) {
+                    return;
+                }
                 MissingResourceException failure = null;
                 for (VersionPatternVisitor list : visitors) {
                     try {
@@ -58,5 +67,9 @@ public class ChainedVersionLister implements VersionLister {
                 throw failure;
             }
         };
+    }
+
+    private boolean isIncomplete(ModuleIdentifier module) {
+        return module.getName().isEmpty() || (!allowEmptyGroup && module.getGroup().isEmpty());
     }
 }

@@ -17,6 +17,7 @@
 package org.gradle.api.internal.artifacts.repositories.resolver
 
 import org.gradle.api.artifacts.ModuleIdentifier
+import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.api.resources.MissingResourceException
 import org.gradle.api.resources.ResourceException
 import org.gradle.internal.component.model.IvyArtifactName
@@ -32,7 +33,7 @@ class ChainedVersionListerTest extends Specification {
     VersionPatternVisitor versionList2 = Mock()
 
     ResourcePattern pattern = Mock()
-    ModuleIdentifier module = Mock()
+    ModuleIdentifier module = DefaultModuleIdentifier.newId("group", "name")
     IvyArtifactName artifact = Mock()
     ResourceAwareResolveResult result = Mock()
 
@@ -137,5 +138,48 @@ class ChainedVersionListerTest extends Specification {
         and:
         1 * versionList1.visit(pattern, artifact) >> { throw new MissingResourceException(URI.create("scheme:thing"), "ignore me") }
         1 * versionList2.visit(pattern, artifact) >> { throw exception }
+    }
+
+    def "chain is not visited if name in module identifier is empty"() {
+        given:
+        def versions = []
+        def emptyNameIdentifier = DefaultModuleIdentifier.newId("group", "")
+
+        when:
+        chainedVersionLister.newVisitor(emptyNameIdentifier, versions, result).visit(pattern, artifact)
+
+        then:
+        1 * lister1.newVisitor(emptyNameIdentifier, versions, result)
+        1 * lister2.newVisitor(emptyNameIdentifier, versions, result)
+        0 * _._
+    }
+
+    def "chain is not visited if group in module identifier is empty"() {
+        given:
+        def versions = []
+        def emptyGroupIdentifier = DefaultModuleIdentifier.newId("", "name")
+
+        when:
+        chainedVersionLister.newVisitor(emptyGroupIdentifier, versions, result).visit(pattern, artifact)
+
+        then:
+        1 * lister1.newVisitor(emptyGroupIdentifier, versions, result)
+        1 * lister2.newVisitor(emptyGroupIdentifier, versions, result)
+        0 * _._
+    }
+
+    def "chain is visited if group in module identifier is empty, but empty groups are allowed"() {
+        given:
+        def chainedVersionLister = new ChainedVersionLister(true, lister1)
+        def versions = []
+        def emptyGroupIdentifier = DefaultModuleIdentifier.newId("", "name")
+
+        when:
+        chainedVersionLister.newVisitor(emptyGroupIdentifier, versions, result).visit(pattern, artifact)
+
+        then:
+        1 * lister1.newVisitor(emptyGroupIdentifier, versions, result) >> versionList1
+        1 * versionList1.visit(pattern, artifact)
+        0 * _._
     }
 }

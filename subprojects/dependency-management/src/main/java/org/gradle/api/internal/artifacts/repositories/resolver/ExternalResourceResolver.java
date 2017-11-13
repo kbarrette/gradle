@@ -97,6 +97,7 @@ public abstract class ExternalResourceResolver<T extends ModuleComponentResolveM
 
     private final ExternalResourceRepository repository;
     private final boolean local;
+    private final boolean supportsEmptyGroupOrVersion;
     private final CacheAwareExternalResourceAccessor cachingResourceAccessor;
     private final LocallyAvailableResourceFinder<ModuleComponentArtifactMetadata> locallyAvailableResourceFinder;
     private final FileStore<ModuleComponentArtifactIdentifier> artifactFileStore;
@@ -109,6 +110,7 @@ public abstract class ExternalResourceResolver<T extends ModuleComponentResolveM
     private ExternalResourceArtifactResolver cachedArtifactResolver;
 
     protected ExternalResourceResolver(String name,
+                                       boolean supportsEmptyGroupOrVersion,
                                        boolean local,
                                        ExternalResourceRepository repository,
                                        CacheAwareExternalResourceAccessor cachingResourceAccessor,
@@ -118,6 +120,7 @@ public abstract class ExternalResourceResolver<T extends ModuleComponentResolveM
                                        ImmutableModuleIdentifierFactory moduleIdentifierFactory,
                                        FileResourceRepository fileResourceRepository) {
         this.name = name;
+        this.supportsEmptyGroupOrVersion = supportsEmptyGroupOrVersion;
         this.local = local;
         this.cachingResourceAccessor = cachingResourceAccessor;
         this.versionLister = versionLister;
@@ -183,6 +186,13 @@ public abstract class ExternalResourceResolver<T extends ModuleComponentResolveM
         for (ResourcePattern resourcePattern : patternList) {
             visitor.visit(resourcePattern, ivyArtifactName);
         }
+    }
+
+    private boolean isIncomplete(ModuleComponentIdentifier moduleComponentIdentifier) {
+        if (supportsEmptyGroupOrVersion) {
+            return moduleComponentIdentifier.getModule().isEmpty();
+        }
+        return moduleComponentIdentifier.getGroup().isEmpty() || moduleComponentIdentifier.getModule().isEmpty() || moduleComponentIdentifier.getVersion().isEmpty();
     }
 
     protected void doResolveComponentMetaData(ModuleComponentIdentifier moduleComponentIdentifier, ComponentOverrideMetadata prescribedMetaData, BuildableModuleComponentMetaDataResolveResult result) {
@@ -464,6 +474,10 @@ public abstract class ExternalResourceResolver<T extends ModuleComponentResolveM
 
         @Override
         public final void resolveComponentMetaData(ModuleComponentIdentifier moduleComponentIdentifier, ComponentOverrideMetadata requestMetaData, BuildableModuleComponentMetaDataResolveResult result) {
+            if (isIncomplete(moduleComponentIdentifier)) {
+                result.missing();
+                return;
+            }
             doResolveComponentMetaData(moduleComponentIdentifier, requestMetaData, result);
         }
 

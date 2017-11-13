@@ -85,7 +85,7 @@ public class MavenResolver extends ExternalResourceResolver<MavenModuleResolveMe
                          FileStore<String> resourcesFileStore,
                          FileResourceRepository fileResourceRepository,
                          boolean preferGradleMetadata) {
-        super(name, transport.isLocal(),
+        super(name, false, transport.isLocal(),
                 transport.getRepository(),
                 transport.getResourceAccessor(),
                 new ChainedVersionLister(new MavenVersionLister(cacheAwareExternalResourceAccessor, resourcesFileStore), new ResourceVersionLister(transport.getRepository())),
@@ -122,10 +122,6 @@ public class MavenResolver extends ExternalResourceResolver<MavenModuleResolveMe
     }
 
     protected void doResolveComponentMetaData(ModuleComponentIdentifier moduleComponentIdentifier, ComponentOverrideMetadata prescribedMetaData, BuildableModuleComponentMetaDataResolveResult result) {
-        if (isIncomplete(moduleComponentIdentifier)) {
-            result.missing();
-            return;
-        }
         if (isNonUniqueSnapshot(moduleComponentIdentifier)) {
             MavenUniqueSnapshotModuleSource uniqueSnapshotVersion = findUniqueSnapshotVersion(moduleComponentIdentifier, result);
             if (uniqueSnapshotVersion != null) {
@@ -143,10 +139,6 @@ public class MavenResolver extends ExternalResourceResolver<MavenModuleResolveMe
         }
 
         resolveStaticDependency(moduleComponentIdentifier, prescribedMetaData, result, super.createArtifactResolver());
-    }
-
-    private boolean isIncomplete(ModuleComponentIdentifier moduleComponentIdentifier) {
-        return moduleComponentIdentifier.getGroup().isEmpty() || moduleComponentIdentifier.getModule().isEmpty() || moduleComponentIdentifier.getVersion().isEmpty();
     }
 
     protected boolean isMetaDataArtifact(ArtifactType artifactType) {
